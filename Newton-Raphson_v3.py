@@ -205,11 +205,13 @@ if grado == 0:
     if coeficientes[0] == 0:
         print("\nEl polinomio se reduce a f(x) = 0 (función nula).")
         print("Todo valor de x es raíz.")
+        
     else:
         print(f"\nEl polinomio se reduce a una constante: f(x) = {coeficientes[0]:g}.")
         print("Ningún valor de x es raíz.")
 
-    exit
+    input("\n\nPresione Enter para terminar...")
+    exit()
 
 
 # ---------------------------------------------------------
