@@ -9,16 +9,24 @@ os.system("cls")
 datosx = []
 datosxy = {}
 
+
 # EJEMPLO
 # datosx = [1,2,3,4]
 # datosxy = { 1:1, 2:4, 3:9, 4:16}
 # Esto define cuatro puntos de la función f(x) = x^2
+
+# Se va a usar de esta forma para poder ordenar los datosx
+# y luego poder usar interpolación lineal.
+
+
+
 
 
 
 # ---------------------------------------------------------
 # Funciones auxiliares
 # ---------------------------------------------------------
+
 
 def evaluar_polinomio(coeficientes, x):
     grado = len(coeficientes) - 1
@@ -31,15 +39,6 @@ def evaluar_polinomio(coeficientes, x):
     return resultado
 
 
-
-def derivada_coeficientes(coeficientes):
-    """Obtiene los coeficientes de la derivada del polinomio."""
-    grado = len(coeficientes) - 1
-
-    return [
-        coeficientes[i] * (grado - i)
-        for i in range(grado)
-    ]
 
 
 def construir_polinomio(coeficientes):
@@ -88,48 +87,152 @@ def construir_polinomio(coeficientes):
     return polinomio
 
 
-def criterio_convergencia(coeficientes, derivada, segunda_derivada, x):
+# = GAUSS JORDAN = (IMPORTANTE)
+
+def gauss_jordan(matriz_og):
     """
-    Evalúa el criterio de convergencia de Newton-Raphson:
-    |f(x)f''(x) / [f'(x)]^2| < 1
-    Devuelve False si no se cumple o si f'(x) = 0 (no evaluable).
+    Aplica el método de Gauss-Jordan como en nuestro proyecto 1.
     """
-    fx = evaluar_polinomio(coeficientes, x)
-    fprima_x = evaluar_polinomio(derivada, x)
-    fdobprima_x = evaluar_polinomio(segunda_derivada, x)
+    matriz = [fila[:] for fila in matriz_og]  # copia de la matriz
+    n = len(matriz)
+
+    for i in range(n):
+        pivote = matriz[i][i]
+        for j in range(len(matriz[i])):
+            matriz[i][j] /= pivote
+
+        for k in range(n):
+            if k != i:
+                factor = matriz[k][i]
+                for j in range(len(matriz[k])):
+                    matriz[k][j] -= factor * matriz[i][j]
+
+    return tuple(matriz[i][-1] for i in range(n))
+
+
+
+# === INTERPOLACIÓN LINEAL ===
+
+# Suposiciones:
+# x   not in  datosx
+# min(datosx) < x < max(datosx) 
+
+def int_lineal(datosx, datosxy, x):
+    n = len(datosx)
+    izq = 0
+    der = n - 1
+
+    # Encontrando xi consecutivos tal que x esté en xi
+    while der - izq > 1:
+        nextn = math.floor((izq + der) / 2)
+        if datosx[nextn] < x:
+            izq = nextn
+        else:
+            der = nextn
+
+    # Aquí: datosx[izq] < x < datosx[der], con der == izq + 1
+    xi, xi1 = datosx[izq], datosx[der]
+    yi = datosxy[xi]
+    yi1 = datosxy[xi1]
+
+    # Aplicando la fórmula
+    y_int = yi + ((yi1 - yi)/(xi1-xi)) * (x - xi)
+
+    return y_int
+    
+
+# === POLINOMIO DE INTERPOLACIÓN ÚNICO ===
+
+# Usaremos el método de Gauss Jordan para obtener la solución de los coefs.
+
+def int_pol(datosx, datosxy, x, pol = None):
+    matriz = []
+    n= len(datosx)
+
+    if pol != None:
+        return evaluar_polinomio(pol,x), pol
+
+    # Construyendo la matriz
+    for a in datosx:
+        fila = [a**k for k in range(n + 1)]
+        fila.append(datosxy[a])
+        matriz.append(fila)
+
+    #Coeficientes en el orden correcto
+    pol = gauss_jordan(matriz)
+
+    return evaluar_polinomio(pol,x), pol
 
     
-    
-    if fprima_x == 0:
-        return False
 
-    xnuevo = x - fx/fprima_x
+# === POLINOMIO DE INTERPOLACIÓN - NEWTON ===
 
-    fx1 = evaluar_polinomio(coeficientes, xnuevo)
-    fprima_x1 = evaluar_polinomio(derivada, xnuevo)
-    fdobprima_x1 = evaluar_polinomio(segunda_derivada, x)
-    #Tanto el x nuevo como x deben de ser menores que uno
-    crit0 = abs((fx * fdobprima_x) / (fprima_x ** 2)) < 1
-    crit1 = abs((fx1 * fdobprima_x1) / (fprima_x1 ** 2)) < 1
-    return crit0 and crit1
+# Este método aplica tanto para diferencias divididas como separadas.
 
-def encontrar_valor_inicial_valido(coeficientes, derivada, derivada2, x0, paso=0.1, intentos=1000):
-    """
-    Busca un valor cercano a x0 que cumpla el criterio de convergencia,
-    alternando incrementos hacia la derecha e izquierda de x0.
-    Devuelve el nuevo valor, o None si no se encontró ninguno.
-    """
-    for i in range(1, intentos + 1):
-        candidato_der = x0 + i * paso
-        candidato_izq = x0 - i * paso
+# Usaremos el método de Gauss Jordan para obtener la solución de los coefs.
 
-        if criterio_convergencia(coeficientes, derivada, derivada2, candidato_der):
-            return candidato_der
+def int_newton(datosx, datosxy, x):
+    matriz = []
+    n = len(datosx)
 
-        if criterio_convergencia(coeficientes, derivada, derivada2, candidato_izq):
-            return candidato_izq
+    # Construyendo la matriz
+    for i in range(n):  # Fila i
+        product = 1
+        fila = [product]
+        for j in range(1, n):  # Columna i
+            if j == i+1: # Si ya pasamos la diagonal principal, es 0 siempre
+                fila.extend([0] * (n - j))
+                break
+            product *= datosx[i] - datosx[j-1] # Añadiendo el producto total
+            fila.append(product)
+        fila.append(datosxy[datosx[i]]) # Se añade el "lado derecho"
+        matriz.append(fila) # Ya tenemos la fila, y se añade
+                
 
-    return None
+    # Coeficientes en el orden correcto
+    C = gauss_jordan(matriz)
+
+    # Evaluando en el polinomio con los coeficientes dados
+    product = 1
+    tot = 0
+
+    for i in range(n):
+        tot += C[i]*product
+        product *= (x-datosx[i])
+
+    return tot
+
+
+# === INTERPOLACIÓN DE LAGRANGE ===
+
+def L(k, datosx, x):  # Polinomio Lk(x)
+    n = len(datosx)
+    producto = 1
+    for i in range(n):
+        producto *= (x - datosx[i] if i!=k else 1)
+        # Multiplica por (x-xi) a menos que i=k
+    return producto
+
+def int_lagrange(datosx, datosxy, x):
+    suma = 0
+    n = len(datosx)
+
+    for i in range(n):
+        xi = datosx[i]
+        
+        suma += datosxy[xi] * L(i, datosx, x) / L(i, datosx, xi)
+    return suma
+
+
+
+
+
+# INICIO DEL PROGRAMA
+
+
+
+print("--- Interpolación ---")
+print("\n")
 
 
 # ---------------------------------------------------------
@@ -138,8 +241,7 @@ def encontrar_valor_inicial_valido(coeficientes, derivada, derivada2, x0, paso=0
 # Se determina automáticamente según la cantidad de coeficientes
 # que se ingresen.
 
-print("--- Método Gauss-Jordan ---")
-print("\n")
+
 
 while True:
     entrada = input(
