@@ -126,7 +126,7 @@ def encontrar_valor_inicial_valido(coeficientes, derivada, derivada2, x0, paso=0
 # Se determina automáticamente según la cantidad de coeficientes
 # que se ingresen.
 
-print("--- Método Gauss-Jordan ---")
+print("--- Método Newton-Raphson ---")
 print("\n")
 
 while True:
